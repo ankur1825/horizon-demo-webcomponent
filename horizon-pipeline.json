@@ -1,0 +1,7 @@
+{
+  "projectName": "horizon-demo-webcomponent",
+  "projectType": "WebComponent",
+  "branch": "main",
+  "containerPort": 80,
+  "healthPath": "/"
+}
