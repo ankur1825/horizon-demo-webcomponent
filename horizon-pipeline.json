@@ -1,7 +1,8 @@
 {
   "projectName": "horizon-demo-webcomponent",
-  "projectType": "WebComponent",
+  "projectType": "Python",
   "branch": "main",
-  "containerPort": 80,
-  "healthPath": "/"
+  "containerPort": 8080,
+  "healthPath": "/healthz",
+  "securityValidationProfile": "intentionally-vulnerable-demo"
 }

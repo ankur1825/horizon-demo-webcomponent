@@ -1,0 +1,30 @@
+### Health
+GET http://localhost:8080/healthz
+
+### Create agent task
+POST http://localhost:8080/api/agent/task
+Content-Type: application/json
+
+{
+  "owner": "rishi.sharma",
+  "task": "Check deployment readiness for QA",
+  "context": "SSDLC scanner validation demo"
+}
+
+### Search memory
+GET http://localhost:8080/api/memory/search?owner=rishi.sharma
+
+### DNS diagnostic
+GET http://localhost:8080/api/agent/tools/dns?host=example.com
+
+### URL fetch
+GET http://localhost:8080/api/agent/fetch?url=https://example.com
+
+### Feedback
+POST http://localhost:8080/api/feedback
+Content-Type: application/json
+
+{
+  "name": "QA Reviewer",
+  "message": "Scanner validation feedback"
+}
