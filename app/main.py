@@ -1,30 +1,20 @@
-import os
-import sqlite3
-import subprocess
-from datetime import datetime, timezone
-from pathlib import Path
-
-import requests
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
+
+from app import db
+from app.agent import trustops_agent
+from app.lab import router as lab_router
+from app.models import ReleaseAssessment, ReleaseAssessmentRequest
+from app.realtime import event_hub
+from app.reports import render_pr_comment
+from app.settings import APP_NAME, APP_VERSION
 
 
-DATABASE_PATH = Path(os.getenv("AGENT_DB", "/tmp/agent_memory.db"))
+app = FastAPI(title=APP_NAME, version=APP_VERSION, debug=True)
 
-# INTENTIONAL_VULNERABILITY: fake hardcoded secrets for scanner validation only.
-DEMO_OPENAI_API_KEY = "sk-hr-demo-do-not-use-1234567890"
-DEMO_JWT_SECRET = "super-secret-demo-jwt-signing-key"
-
-
-app = FastAPI(
-    title="Horizon Vulnerable Agentic AI Demo",
-    version="0.1.0",
-    debug=True,
-)
-
-# INTENTIONAL_VULNERABILITY: wildcard CORS for policy/SAST detection.
+# INTENTIONAL_VULNERABILITY: wildcard CORS for SSDLC scanner validation.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,175 +23,108 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-class TaskRequest(BaseModel):
-    owner: str
-    task: str
-    context: str | None = None
+app.include_router(lab_router)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
-class FeedbackRequest(BaseModel):
-    name: str
-    message: str
-
-
-class AgentRuntime:
-    def __init__(self) -> None:
-        self.connections: list[WebSocket] = []
-        self._init_db()
-
-    def _init_db(self) -> None:
-        DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(DATABASE_PATH) as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS memories (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    owner TEXT NOT NULL,
-                    task TEXT NOT NULL,
-                    context TEXT,
-                    plan TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                )
-                """
-            )
-
-    async def connect(self, websocket: WebSocket) -> None:
-        await websocket.accept()
-        self.connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket) -> None:
-        if websocket in self.connections:
-            self.connections.remove(websocket)
-
-    async def broadcast(self, payload: dict) -> None:
-        stale = []
-        for websocket in self.connections:
-            try:
-                await websocket.send_json(payload)
-            except RuntimeError:
-                stale.append(websocket)
-        for websocket in stale:
-            self.disconnect(websocket)
-
-    def plan_task(self, request: TaskRequest) -> dict:
-        plan = [
-            "Classify request intent",
-            "Retrieve matching operational memory",
-            "Select tool: deploy-check, risk-check, or evidence-check",
-            "Return recommended next action",
-        ]
-        result = {
-            "owner": request.owner,
-            "task": request.task,
-            "context": request.context,
-            "plan": plan,
-            "risk": "demo-high" if "prod" in request.task.lower() else "demo-medium",
-            "createdAt": datetime.now(timezone.utc).isoformat(),
-        }
-        self.save_memory(request, " | ".join(plan))
-        return result
-
-    def save_memory(self, request: TaskRequest, plan: str) -> None:
-        with sqlite3.connect(DATABASE_PATH) as conn:
-            conn.execute(
-                "INSERT INTO memories(owner, task, context, plan, created_at) VALUES (?, ?, ?, ?, ?)",
-                (
-                    request.owner,
-                    request.task,
-                    request.context,
-                    plan,
-                    datetime.now(timezone.utc).isoformat(),
-                ),
-            )
-
-
-runtime = AgentRuntime()
+@app.on_event("startup")
+def startup() -> None:
+    db.init_db()
 
 
 @app.get("/healthz")
 def healthz() -> dict:
-    return {"status": "ok", "service": "vulnerable-agentic-ai-demo"}
+    return {"status": "ok", "service": APP_NAME, "version": APP_VERSION}
 
 
-@app.post("/api/agent/task")
-async def create_agent_task(request: TaskRequest) -> dict:
-    result = runtime.plan_task(request)
-    await runtime.broadcast({"event": "agent.plan.created", "data": result})
-    return result
-
-
-@app.websocket("/ws/agent")
-async def websocket_agent(websocket: WebSocket) -> None:
-    await runtime.connect(websocket)
-    try:
-        while True:
-            payload = await websocket.receive_json()
-            request = TaskRequest(
-                owner=str(payload.get("owner", "anonymous")),
-                task=str(payload.get("task", "")),
-                context=payload.get("context"),
-            )
-            result = runtime.plan_task(request)
-            await websocket.send_json({"event": "agent.plan.created", "data": result})
-    except WebSocketDisconnect:
-        runtime.disconnect(websocket)
-
-
-@app.get("/api/memory/search")
-def search_memory(owner: str) -> JSONResponse:
-    # INTENTIONAL_VULNERABILITY: SQL injection for scanner validation.
-    query = f"SELECT id, owner, task, context, plan, created_at FROM memories WHERE owner = '{owner}'"
-    with sqlite3.connect(DATABASE_PATH) as conn:
-        rows = conn.execute(query).fetchall()
-    return JSONResponse(
-        {
-            "query": query,
-            "results": [
-                {
-                    "id": row[0],
-                    "owner": row[1],
-                    "task": row[2],
-                    "context": row[3],
-                    "plan": row[4],
-                    "createdAt": row[5],
-                }
-                for row in rows
-            ],
-        }
-    )
-
-
-@app.get("/api/agent/tools/dns")
-def dns_lookup(host: str) -> JSONResponse:
-    # INTENTIONAL_VULNERABILITY: command injection for scanner validation.
-    command = f"nslookup {host}"
-    output = subprocess.check_output(command, shell=True, text=True, stderr=subprocess.STDOUT, timeout=5)
-    return JSONResponse({"command": command, "output": output})
-
-
-@app.get("/api/agent/fetch")
-def fetch_url(url: str) -> JSONResponse:
-    # INTENTIONAL_VULNERABILITY: SSRF-prone unrestricted outbound fetch.
-    response = requests.get(url, timeout=5)
-    return JSONResponse(
-        {
-            "url": url,
-            "statusCode": response.status_code,
-            "bodyPreview": response.text[:1000],
-        }
-    )
-
-
-@app.post("/api/feedback")
-def feedback(request: FeedbackRequest) -> HTMLResponse:
-    # INTENTIONAL_VULNERABILITY: reflected XSS for scanner validation.
-    html = f"""
-    <html>
+@app.get("/", response_class=HTMLResponse)
+def dashboard() -> str:
+    return """
+    <!doctype html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>TrustOps Agent</title>
+        <link rel="stylesheet" href="/static/styles.css" />
+      </head>
       <body>
-        <h1>Thanks, {request.name}</h1>
-        <div class="feedback">{request.message}</div>
+        <main class="shell">
+          <section class="hero">
+            <div>
+              <p class="eyebrow">Software Supply Chain Trust</p>
+              <h1>Can I trust this release?</h1>
+              <p class="lede">Real-time AI agent workflow for SBOM, dependency, provenance, signature, license, and release-risk evidence.</p>
+            </div>
+            <button id="runDemo">Run Demo Assessment</button>
+          </section>
+          <section class="grid">
+            <article>
+              <h2>Live Agent Trace</h2>
+              <ol id="events"></ol>
+            </article>
+            <article>
+              <h2>Latest Decision</h2>
+              <pre id="decision">{}</pre>
+            </article>
+          </section>
+          <section>
+            <h2>Release History</h2>
+            <div id="history" class="history"></div>
+          </section>
+        </main>
+        <script src="/static/app.js"></script>
       </body>
     </html>
     """
-    return HTMLResponse(html)
+
+
+@app.get("/api/releases")
+def list_releases() -> list[dict]:
+    return db.list_assessments()
+
+
+@app.post("/api/releases/assess", response_model=ReleaseAssessment)
+async def assess_release(request: ReleaseAssessmentRequest) -> ReleaseAssessment:
+    return await trustops_agent.assess_release(request, event_hub.broadcast)
+
+
+@app.get("/api/releases/{release_id}", response_model=ReleaseAssessment)
+def get_release(release_id: str) -> JSONResponse:
+    assessment = db.get_assessment(release_id)
+    if not assessment:
+        return JSONResponse({"error": "release not found"}, status_code=404)
+    return JSONResponse(assessment)
+
+
+@app.get("/api/releases/{release_id}/evidence")
+def get_evidence(release_id: str) -> JSONResponse:
+    assessment = db.get_assessment(release_id)
+    if not assessment:
+        return JSONResponse({"error": "release not found"}, status_code=404)
+    return JSONResponse(
+        {
+            "evidenceBundle": assessment["evidence"],
+            "sbom": assessment["sbom"],
+            "signals": assessment["signals"],
+            "agentTrace": assessment["agentTrace"],
+        }
+    )
+
+
+@app.get("/api/releases/{release_id}/pr-comment", response_class=PlainTextResponse)
+def get_pr_comment(release_id: str) -> str:
+    assessment = db.get_assessment(release_id)
+    if not assessment:
+        return "release not found"
+    return render_pr_comment(ReleaseAssessment(**assessment))
+
+
+@app.websocket("/ws/releases")
+async def release_events(websocket: WebSocket) -> None:
+    await event_hub.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        event_hub.disconnect(websocket)

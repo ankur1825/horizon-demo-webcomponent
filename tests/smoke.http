@@ -1,27 +1,43 @@
 ### Health
 GET http://localhost:8080/healthz
 
-### Create agent task
-POST http://localhost:8080/api/agent/task
+### Assess release
+POST http://localhost:8080/api/releases/assess
 Content-Type: application/json
 
 {
-  "owner": "rishi.sharma",
-  "task": "Check deployment readiness for QA",
-  "context": "SSDLC scanner validation demo"
+  "organization": "horizon-relevance",
+  "repository": "claims-api",
+  "branch": "main",
+  "commitSha": "abc1234demo",
+  "releaseVersion": "1.8.0",
+  "targetEnvironment": "PROD",
+  "requester": "rishi.sharma@horizonrelevance.com",
+  "artifact": {
+    "image": "426946630837.dkr.ecr.us-east-1.amazonaws.com/horizon/claims-api:1.8.0",
+    "digest": "sha256:demo",
+    "signatureStatus": "missing",
+    "provenanceStatus": "missing"
+  },
+  "dependencies": [
+    { "name": "fastapi", "version": "0.95.0", "license": "MIT", "registry": "pypi", "maintainer": "tiangolo", "runtime": true },
+    { "name": "requests", "version": "2.28.1", "license": "Apache-2.0", "registry": "pypi", "maintainer": "psf", "previousVersion": "2.31.0", "runtime": true },
+    { "name": "lodash", "version": "4.17.15", "license": "MIT", "registry": "npm", "maintainer": "unknown", "previousVersion": "4.17.21", "runtime": true },
+    { "name": "left-pad", "version": "1.3.0", "license": "UNKNOWN", "registry": "npm", "maintainer": "unknown", "runtime": false }
+  ]
 }
 
-### Search memory
-GET http://localhost:8080/api/memory/search?owner=rishi.sharma
+### Vulnerable SQL lab
+GET http://localhost:8080/api/lab/memory/search?owner=rishi.sharma
 
-### DNS diagnostic
-GET http://localhost:8080/api/agent/tools/dns?host=example.com
+### Vulnerable command lab
+GET http://localhost:8080/api/lab/tools/dns?host=example.com
 
-### URL fetch
-GET http://localhost:8080/api/agent/fetch?url=https://example.com
+### Vulnerable SSRF lab
+GET http://localhost:8080/api/lab/fetch?url=https://example.com
 
-### Feedback
-POST http://localhost:8080/api/feedback
+### Vulnerable XSS lab
+POST http://localhost:8080/api/lab/feedback
 Content-Type: application/json
 
 {

@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: vulnerable-agentic-ai-app
+  name: trustops-agent-vulnerable-demo
   labels:
-    app: vulnerable-agentic-ai-app
+    app: trustops-agent-vulnerable-demo
     ssdlc-demo: "true"
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: vulnerable-agentic-ai-app
+      app: trustops-agent-vulnerable-demo
   template:
     metadata:
       labels:
-        app: vulnerable-agentic-ai-app
+        app: trustops-agent-vulnerable-demo
         ssdlc-demo: "true"
     spec:
       containers:
         - name: app
-          image: vulnerable-agentic-ai-app:demo
+          image: trustops-agent-vulnerable-demo:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:
             - name: APP_ENV
               value: demo
-            - name: AGENT_DB
-              value: /tmp/agent_memory.db
+            - name: TRUSTOPS_DB
+              value: /tmp/trustops_agent.db
           securityContext:
             privileged: true
             allowPrivilegeEscalation: true
@@ -35,12 +35,12 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: vulnerable-agentic-ai-app
+  name: trustops-agent-vulnerable-demo
   labels:
-    app: vulnerable-agentic-ai-app
+    app: trustops-agent-vulnerable-demo
 spec:
   selector:
-    app: vulnerable-agentic-ai-app
+    app: trustops-agent-vulnerable-demo
   ports:
     - name: http
       port: 80

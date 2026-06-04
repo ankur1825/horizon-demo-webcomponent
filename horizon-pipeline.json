@@ -1,8 +1,18 @@
 {
-  "projectName": "horizon-demo-webcomponent",
+  "projectName": "trustops-agent-vulnerable-demo",
   "projectType": "Python",
   "branch": "main",
   "containerPort": 8080,
   "healthPath": "/healthz",
-  "securityValidationProfile": "intentionally-vulnerable-demo"
+  "securityValidationProfile": "intentionally-vulnerable-supply-chain-trust-demo",
+  "expectedFindings": [
+    "sql-injection",
+    "command-injection",
+    "ssrf",
+    "xss",
+    "hardcoded-secret",
+    "vulnerable-dependencies",
+    "root-container",
+    "privileged-kubernetes-pod"
+  ]
 }

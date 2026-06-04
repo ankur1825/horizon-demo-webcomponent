@@ -7,8 +7,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
-# INTENTIONAL_VULNERABILITY: container runs as root for scanner validation.
-ENV AGENT_DB=/tmp/agent_memory.db
+# INTENTIONAL_VULNERABILITY: container runs as root for SSDLC validation.
+ENV TRUSTOPS_DB=/tmp/trustops_agent.db
 ENV APP_ENV=demo
 
 EXPOSE 8080

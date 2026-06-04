@@ -1,1 +1,1 @@
-"""Intentionally vulnerable SSDLC demo application."""
+"""TrustOps Agent vulnerable SSDLC demo application."""

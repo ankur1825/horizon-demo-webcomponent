@@ -1,31 +1,35 @@
-# Vulnerable Agentic AI Demo App
+# TrustOps Agent: Software Supply Chain Trust Platform
 
-This repository is an intentionally vulnerable real-time agentic AI demo workload for validating the Horizon Relevance SSDLC pipeline.
+TrustOps Agent is a real-time enterprise AI agentic demo application for validating a Secure SDLC platform. It models a startup product wedge:
 
-Do not deploy this application outside an isolated test namespace.
+> Trust layer for software builds, dependencies, containers, and AI model artifacts.
 
-## Purpose
+The app answers:
 
-The app simulates a small AI operations assistant:
+- What dependencies are in this release?
+- Was the build tampered with?
+- Are containers signed?
+- Is provenance present?
+- Which packages create legal or security risk?
+- Is this release safe to ship?
+- Can we export an evidence bundle for a customer or auditor?
 
-- Accepts real-time tasks over WebSocket.
-- Stores agent memories in SQLite.
-- Provides HTTP endpoints for task planning, memory search, URL fetch, DNS-style diagnostics, and feedback.
-- Includes a Dockerfile and Kubernetes manifest so the SSDLC platform can scan source code, dependencies, container configuration, and deployment policy.
+This repository intentionally includes vulnerable patterns so Horizon Relevance SSDLC testing can detect SAST, SCA, secret, container, Kubernetes, and DAST-style findings.
 
-## Expected SSDLC Findings
+Do not deploy this application outside an isolated SSDLC validation namespace.
 
-| Area | Seeded issue | Detection phase |
-| --- | --- | --- |
-| SAST | SQL injection in memory search | Code security scan |
-| SAST | Command injection in DNS diagnostic endpoint | Code security scan |
-| SAST | SSRF-prone URL fetch endpoint | Code security scan |
-| SAST / DAST | Reflected XSS in feedback rendering | App security test |
-| Secrets | Fake hardcoded API key and JWT secret | Secret scan |
-| Dependency | Old pinned dependency versions | Dependency scan |
-| Container | Container runs as root | Container scan |
-| Kubernetes | Privileged pod, no limits, no probes | IaC / policy validation |
-| AppSec | Wildcard CORS and debug responses | Policy / SAST |
+## Product Capabilities
+
+- Real-time WebSocket release assessment stream.
+- Agentic release analysis workflow.
+- Simulated SBOM generation in CycloneDX-like shape.
+- Dependency diff and maintainer reputation signals.
+- Vulnerability and license risk scoring.
+- Artifact signature and build provenance checks.
+- Policy engine with pass, warn, and block decisions.
+- Evidence bundle export per release.
+- PR-comment style report generation.
+- Demo dashboard for release trust history.
 
 ## Local Run
 
@@ -36,42 +40,58 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8080
 ```
 
-WebSocket endpoint:
+Open:
 
 ```text
-ws://localhost:8080/ws/agent
+http://localhost:8080
 ```
 
-HTTP endpoints:
+## Core APIs
 
 ```text
 GET  /healthz
-POST /api/agent/task
-GET  /api/memory/search?owner=<value>
-GET  /api/agent/tools/dns?host=<value>
-GET  /api/agent/fetch?url=<value>
-POST /api/feedback
+GET  /
+GET  /api/releases
+POST /api/releases/assess
+GET  /api/releases/{release_id}
+GET  /api/releases/{release_id}/evidence
+GET  /api/releases/{release_id}/pr-comment
+WS   /ws/releases
 ```
+
+## Intentional Vulnerability Add-On
+
+The `/api/lab/*` endpoints are intentionally unsafe and exist only for SSDLC validation.
+
+```text
+GET  /api/lab/memory/search?owner=<value>
+GET  /api/lab/tools/dns?host=<value>
+GET  /api/lab/fetch?url=<value>
+POST /api/lab/feedback
+GET  /api/lab/debug/config
+```
+
+See [INTENTIONAL_VULNERABILITIES.md](INTENTIONAL_VULNERABILITIES.md).
 
 ## Container Build
 
 ```bash
-docker build -t vulnerable-agentic-ai-app:demo .
+docker build -t trustops-agent-vulnerable-demo:latest .
 ```
 
 ## Kubernetes Test Deployment
 
 ```bash
-kubectl create namespace ssdlc-vuln-demo
-kubectl apply -n ssdlc-vuln-demo -f k8s/deployment.yaml
+kubectl create namespace ssdlc-trustops-demo
+kubectl apply -n ssdlc-trustops-demo -f k8s/deployment.yaml
 ```
 
-Delete after scanner validation:
+Delete after validation:
 
 ```bash
-kubectl delete namespace ssdlc-vuln-demo
+kubectl delete namespace ssdlc-trustops-demo
 ```
 
-## Safety Boundary
+## SSDLC Pipeline Metadata
 
-These vulnerabilities are present so the SSDLC scanner can find them. Keep this app out of shared production clusters and do not attach it to real credentials, real internal metadata services, or real customer data.
+The `horizon-pipeline.json` file describes this as a Python/FastAPI project with an intentional vulnerability profile.
